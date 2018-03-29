@@ -851,7 +851,7 @@ Contains
             checkpoint_elapsed = 0.0d0          
             !If the long interval check is satisfied, nothing,
             ! nothing related to the short interval is executed.
-        Else
+        Elseif (num_quicksaves .gt. 0) Then
 
             !Check for quick-save status.  This will be based on either iteration #
             ! OR on the time since the last checkpoint
