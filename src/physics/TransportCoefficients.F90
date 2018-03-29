@@ -88,6 +88,10 @@ Contains
 	End Subroutine Compute_Diffusion_Coefs
 
 	Subroutine Initialize_Transport_Coefficients()
+    If (my_rank .eq. 0) Then
+        Call stdout%print(" -- Initalizing Transport Coefficients...")
+        Call stdout%print(" ---- Relevant parameters:")
+    Endif
 		Call Allocate_Transport_Coefficients
         If (.not. Dimensional_Reference) Then
             ! nu,kappa, and eta are based on the non-dimensionalization employed
@@ -126,11 +130,17 @@ Contains
 
         Call Transport_Dependencies()
 
+    If (my_rank .eq. 0) Then
+        Call stdout%print(" -- Transport Coefficients initialized.")
+        Call stdout%print(" ")
+    Endif
 	End Subroutine Initialize_Transport_Coefficients
 
     Subroutine Transport_Dependencies()
         Implicit None
         Real*8 :: fsun, lum_top, lum_bottom
+        Character*12 :: dstring
+        Character*8 :: dofmt = '(ES12.5)'
         !Any odd boundary conditions that need the reference state
         ! or nu/kappa etc. can be set here
         ! As can any reference state quanitities, such as heating, that
@@ -158,6 +168,10 @@ Contains
             ref%heating = ref%heating*(lum_top-lum_bottom)
             !If something has been set inconsistenly, this will result
             ! in zero reference heating
+            If (my_rank .eq. 0) Then
+                Write(dstring,dofmt)(lum_top-lum_bottom)
+                Call stdout%print(" ---- Luminosity difference    : "//trim(dstring))
+            end if
          Endif
     End Subroutine Transport_Dependencies
 
