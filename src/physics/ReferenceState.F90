@@ -447,6 +447,8 @@ Contains
         ! dSdt = Phi(r)
         ! Phi(r) may represent internal heating of any type.  For stars, this heating would be
         ! associated with temperature diffusion of the reference state and/or nuclear burning.
+        Character*12 :: dstring
+        Character*8 :: dofmt = '(ES12.5)'
 
         If ( (heating_type .gt. 0) .or. (cooling_type .gt. 0) )Then
             If (.not. Allocated(ref%heating)) Allocate(ref%heating(1:N_R))
@@ -455,14 +457,23 @@ Contains
 
         If (heating_type .eq. 1) Then
             Call Constant_Entropy_Heating()
+            If (my_rank .eq. 0) Then
+                Call stdout%print(" ---- Heating type             : constant entropy")
+            end if
         Endif
 
         If (heating_type .eq. 2) Then
             Call Tanh_Reference_Heating()
+            If (my_rank .eq. 0) Then
+                Call stdout%print(" ---- Heating type             : tanh reference")
+            end if
         Endif
 
         If (heating_type .eq. 4) Then
             Call  Constant_Energy_Heating()
+            If (my_rank .eq. 0) Then
+                Call stdout%print(" ---- Heating type             : constant energy")
+            end if
         Endif
 
         !///////////////////////////////////////////////////////////
@@ -475,6 +486,9 @@ Contains
 
         If (cooling_type .eq. 2) Then
             Call Tanh_Reference_Cooling()            
+            If (my_rank .eq. 0) Then
+                Call stdout%print(" ---- Cooling type             : tanh reference")
+            end if
         Endif
 
         ! Heating Q_H and cooling Q_C are normalized so that:
@@ -490,13 +504,22 @@ Contains
             If (abs(Luminosity) .gt. heating_eps) Then
                 adjust_reference_heating = .false.
                 ref%heating = ref%heating*Luminosity
+                If (my_rank .eq. 0) Then
+                    Write(dstring,dofmt)Luminosity
+                    Call stdout%print(" ---- Luminosity               : "//trim(dstring))
+                end if
             Endif
 
             If (abs(Heating_Integral) .gt. heating_eps) Then
                 adjust_reference_heating = .false.
                 ref%heating = ref%heating*Heating_Integral
+                If (my_rank .eq. 0) Then
+                    Write(dstring,dofmt)Heating_Integral
+                    Call stdout%print(" ---- Heating integral         : "//trim(dstring))
+                end if
             Endif
         Endif
+
     End Subroutine Initialize_Reference_Heating
 
     Subroutine Constant_Energy_Heating()

@@ -50,11 +50,33 @@ Contains
         Implicit None
         Real*8 :: tilt_angle_radians,a,b
         Real*8 :: fsun
+        Character*12 :: dstring
+        Character*8 :: dofmt = '(ES12.5)'
 
+        If (my_rank .eq. 0) Then
+            Call stdout%print(" -- Initializing Boundary Conditions...")
+            Call stdout%print(" ---- Specified parameters: ")
+        Endif
 
         fix_tvar_top = .not. fix_dtdr_top
         fix_tvar_bottom = .not. fix_dtdr_bottom
 
+        If (my_rank .eq. 0) Then
+            if (fix_dtdr_top) then
+                Write(dstring,dofmt)dTdr_Top
+                Call stdout%print(" ---- Top boundary T    : NEUMANN, dTdr = "//trim(dstring))
+            else
+                Write(dstring,dofmt)T_Top
+                Call stdout%print(" ---- Top boundary T    : DIRICHLET,  T = "//trim(dstring))
+            end if
+            if (fix_dtdr_bottom) then
+                Write(dstring,dofmt)dTdr_Bottom
+                Call stdout%print(" ---- Bottom boundary T : NEUMANN, dTdr = "//trim(dstring))
+            else
+                Write(dstring,dofmt)T_Bottom
+                Call stdout%print(" ---- Bottom boundary T : DIRICHLET,  T = "//trim(dstring))
+            end if
+        Endif
 
         If (no_slip_boundaries) Then
             no_slip_top = .true.
@@ -63,6 +85,18 @@ Contains
         stress_free_top = .not. no_slip_top
         stress_free_bottom = .not. no_slip_bottom
 
+        If (my_rank .eq. 0) Then
+            if (no_slip_top) then
+                Call stdout%print(" ---- Top boundary      : NO SLIP")
+            else
+                Call stdout%print(" ---- Top boundary      : STRESS FREE")
+            end if
+            if (no_slip_bottom) then
+                Call stdout%print(" ---- Bottom boundary   : NO SLIP")
+            else
+                Call stdout%print(" ---- Bottom boundary   : STRESS FREE")
+            end if
+        Endif
 
         If (impose_dipole_field) Then
             fix_poloidalfield_top = .true.
@@ -83,6 +117,11 @@ Contains
             C1m1_bottom = 0.0d0*Br_bottom/2.0d0*(radius(N_r)**3)
             C1m1_top = C1m1_bottom*(radius(N_R)/radius(1))
 
+        Endif
+
+        If (my_rank .eq. 0) Then
+            Call stdout%print(" -- Boundary Conditions initialized.")
+            Call stdout%print(" ")
         Endif
 
     End Subroutine Initialize_Boundary_Conditions
