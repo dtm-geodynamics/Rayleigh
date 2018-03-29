@@ -131,6 +131,10 @@ Contains
             !   The final part of the loop just deals with cleaning up if it's 
             !      time to end the run.
             global_msgs(2) = stopwatch(walltime)%elapsed !/timer_ticklength
+            ! standardize the elapsed wall time across all processes
+            ! do this here rather than in stopwatch to avoid adding a block to the stopping and starting of the clock
+            call MPI_Allreduce(MPI_IN_PLACE, global_msgs(2), 1, MPI_DOUBLE_PRECISION, MPI_MAX, pfi%gcomm%comm, mpi_err)
+
             If (global_msgs(2) .gt. max_time_seconds) Then
                 If (my_rank .eq. 0) Then
                     Call stdout%print(' User-specified maximum walltime exceeded.  Cleaning up.')
