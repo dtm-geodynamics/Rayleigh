@@ -28,7 +28,10 @@ Module Initial_Conditions
     Integer :: init_tag = 8989
     Integer :: restart_iter = 0
     Real*8 :: temp_amp = 1.0d0, temp_w = 0.3d0, mag_amp = 1.0d0
+    Real*8 :: temp_polycoeff0 = 0.0d0, temp_polycoeff1 = 0.0d0, temp_polycoeff2 = 0.0d0
+    Real*8 :: temp_polycoeff3 = 0.0d0, temp_polycoeff4 = 0.0d0
     Logical :: conductive_profile = .false.
+    Logical :: random_perturbation = .false.
     Logical :: rescale_velocity = .false.
     Logical :: rescale_bfield = .false.
     Logical :: rescale_pressure = .false.
@@ -40,9 +43,10 @@ Module Initial_Conditions
     Real*8  :: pressure_scale = 1.0d0
 
     Namelist /Initial_Conditions_Namelist/ init_type, temp_amp, temp_w, restart_iter, &
-            & magnetic_init_type,alt_check, mag_amp, conductive_profile, rescale_velocity, &
+            & magnetic_init_type,alt_check, mag_amp, random_perturbation, conductive_profile, rescale_velocity, &
             & rescale_bfield, velocity_scale, bfield_scale, rescale_tvar, &
-            & rescale_pressure, tvar_scale, pressure_scale
+            & rescale_pressure, tvar_scale, pressure_scale, &
+            & temp_polycoeff0, temp_polycoeff1, temp_polycoeff2, temp_polycoeff3, temp_polycoeff4
 Contains
     
     Subroutine Initialize_Fields()
@@ -120,6 +124,12 @@ Contains
                 Call stdout%print(" ---- Hydro Init Type    : Random Thermal Field ")
             Endif
             call random_thermal_init()
+        Endif
+        If (init_Type .eq. 11) Then
+            If (my_rank .eq. 0) Then
+                Call stdout%print(" ---- Hydro Init Type    : polynomial thermal init ")
+            Endif
+            call polynomial_thermal_init()
         Endif
 
 
@@ -635,13 +645,65 @@ Contains
         Call tempfield%deconstruct('p1b')
     End Subroutine ABenchmark_Init_Hydro
 
+    Subroutine polynomial_thermal_init()
+        Implicit None
+        Real*8, Allocatable :: rfunc(:)
+        Real*8 :: x, amp
+        Integer :: r, l, m, mp
+        Integer :: fcount(3,2)
+        type(SphericalBuffer) :: tempfield
+        fcount(:,:) = 1
 
+        Allocate(rfunc(1:N_R))
 
+        Do r = my_r%min, my_r%max
+            rfunc(r) = temp_polycoeff4*(radius(r)**4) + temp_polycoeff3*(radius(r)**3) + &
+                    & temp_polycoeff2*(radius(r)**2) + temp_polycoeff1*(radius(r)) + temp_polycoeff0
+        Enddo
 
+        if (random_perturbation) then
+          ! Construct the streamfunction field buffer
+          Call tempfield%init(field_count = fcount, config = 'p1b')        
+          Call tempfield%construct('p1b')        
 
+          amp = temp_amp
+          call generate_random_field(amp, 1, tempfield, ell0_profile = rfunc)
+        else
+          ! We put our temporary field in spectral space
+          Call tempfield%init(field_count = fcount, config = 's2b')        
+          Call tempfield%construct('s2b')        
 
+          ! Set the ell = 0 temperature and the real part of Y44        
+          Do mp = my_mp%min, my_mp%max
+              m = m_values(mp)
+              tempfield%s2b(mp)%data(:,:,:,:) = 0.0d0            
+              Do l = m, l_max
+                  if ( (l .eq. 0) .and. (m .eq. 0) ) Then
+                      Do r = my_r%min, my_r%max
+                          tempfield%s2b(mp)%data(l,r,1,1) = rfunc(r)*sqrt(4.0d0*pi)
+                      Enddo
+                  endif
+              Enddo
+          Enddo
 
+          Call tempfield%reform() ! goes to p1b
+          If (chebyshev) Then
+              ! we need to load the chebyshev coefficients, and not the physical representation into the RHS
+              Call tempfield%construct('p1a')
 
+              Call gridcp%To_Spectral(tempfield%p1b,tempfield%p1a)
+
+              tempfield%p1b(:,:,:,:) = tempfield%p1a(:,:,:,:)
+              Call tempfield%deconstruct('p1a')
+          Endif
+        endif
+        DeAllocate(rfunc)
+
+        ! Set temperature.  Leave the other fields alone
+        Call Set_RHS(teq,tempfield%p1b(:,:,:,1))
+
+        Call tempfield%deconstruct('p1b')
+    End Subroutine polynomial_thermal_init
 
 
 
@@ -901,6 +963,11 @@ Contains
         temp_w   = 0.3d0
         mag_amp  = 1.0d0
         conductive_profile = .false.
+        temp_polycoeff0 = 0.0d0
+        temp_polycoeff1 = 0.0d0
+        temp_polycoeff2 = 0.0d0
+        temp_polycoeff3 = 0.0d0
+        temp_polycoeff4 = 0.0d0
 
     End Subroutine Restore_InitialCondition_Defaults
 End Module Initial_Conditions
